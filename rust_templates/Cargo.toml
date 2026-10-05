@@ -1,0 +1,39 @@
+[package]
+name = "defuss-tauri-host"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+build = "build.rs"
+license = "MIT"
+
+# Mobile platforms load the host as a library (staticlib on iOS, cdylib on Android).
+[lib]
+name = "defuss_tauri_host_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[workspace]
+# transport is its own workspace root (tested standalone); a nested path dependency would otherwise be an implicit member.
+exclude = ["transport"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.1", features = [] }
+serde_json = "1.0.145"
+
+[dependencies]
+tauri = { version = "=2.12.1", features = ["devtools"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+fs2 = "0.4.3"
+defuss-tauri-transport = { path = "transport", optional = true }
+
+[features]
+default = ["static-assets"]
+static-assets = ["dep:defuss-tauri-transport"]
+custom-protocol = ["tauri/custom-protocol"]
+probe = []
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

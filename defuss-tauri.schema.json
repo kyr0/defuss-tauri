@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:defuss:tauri:configuration:v2",
+  "title": "defuss-tauri URL/folder configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "appName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\:*?\"<>|\\u0000-\\u001f\\u007f]+$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-zA-Z][a-zA-Z0-9-]*(\\.[a-zA-Z][a-zA-Z0-9-]*)+$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "rustTarget": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_]+(?:-[a-zA-Z0-9_]+){2,}$"
+    },
+    "managedDirName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "tauriOutDir": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "$schema": {
+      "type": "string",
+      "format": "uri"
+    },
+    "platform": {
+      "enum": [
+        "native",
+        "macos",
+        "windows",
+        "linux",
+        "ios",
+        "android"
+      ]
+    },
+    "security": {
+      "enum": [
+        "developer",
+        "strict"
+      ],
+      "default": "developer",
+      "description": "Developer enables the native inspector. Neither value overrides target TLS, CORS, OS permissions or engine feature availability."
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32768
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32768
+        },
+        "resizable": {
+          "type": "boolean"
+        },
+        "fullscreen": {
+          "type": "boolean"
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "spa": {
+          "type": "boolean",
+          "default": false
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          },
+          "description": "Exact relative path prefixes, not globs. May include deliberate browser assets from excluded directories. Secrets remain excluded."
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          }
+        },
+        "headers": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[!#$%&'*+.^_`|~0-9a-zA-Z-]+$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[\\t\\x20-\\x7e]*$"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "target"
+        ],
+        "properties": {
+          "target": {
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "entry"
+          ]
+        },
+        "properties": {
+          "assets": {
+            "maxProperties": 0
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "name": "defuss-tauri",
+  "version": "0.2.0",
+  "description": "Framework-independent Tauri launcher for HTTP(S) URLs and static directories.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Aron Homberg <info@aron-homberg.de>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kyr0/defuss-tauri.git"
+  },
+  "homepage": "https://github.com/kyr0/defuss-tauri#readme",
+  "bugs": {
+    "url": "https://github.com/kyr0/defuss-tauri/issues"
+  },
+  "packageManager": "bun@1.4.2",
+  "bin": {
+    "defuss-tauri": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": "./defuss-tauri.schema.json"
+  },
+  "files": [
+    "dist",
+    "rust_templates",
+    "!rust_templates/**/Cargo.lock",
+    "!rust_templates/**/target",
+    "defuss-tauri.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "25.1.0",
+    "oxlint": "1.87.0",
+    "pkgroll": "2.28.1",
+    "typescript": "5.8.3"
+  },
+  "scripts": {
+    "build": "pkgroll --clean-dist",
+    "lint": "tsc --noEmit && oxlint --deny-warnings && python3 tools/policy.py",
+    "test": "node --test tests/*.test.mjs",
+    "coverage": "node tools/coverage.mjs",
+    "e2e": "node --test tests/e2e.test.mjs",
+    "verify": "make verify",
+    "example:static": "bun run build && node dist/cli.js dev --config examples/static/defuss-tauri.json --managed-dir tmp/examples/static/managed --tauri-out tmp/examples/static/out",
+    "example:url": "bun run build && node dist/cli.js dev --config examples/url/defuss-tauri.json --managed-dir tmp/examples/url/managed --tauri-out tmp/examples/url/out",
+    "prepack": "bun run build"
+  },
+  "keywords": [
+    "defuss",
+    "tauri",
+    "desktop",
+    "native",
+    "cli"
+  ]
+}

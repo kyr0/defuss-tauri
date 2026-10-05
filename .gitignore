@@ -1,0 +1,19 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+node_modules/
+*.pyc
+var/*
+tmp/*
+output/*
+input/*
+.DS_Store
+dist/
+# Cargo output of IDE checks or `cargo test` run inside the templates; the package excludes them too.
+rust_templates/**/target/
+rust_templates/**/Cargo.lock
+coverage/
+.cache/
+.coverage

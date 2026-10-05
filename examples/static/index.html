@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>defuss-tauri static example</title>
+<style>body{font:18px system-ui;max-width:52rem;margin:4rem auto;padding:0 1rem}pre{white-space:pre-wrap}button{font:inherit;padding:.5rem}</style>
+<h1>A native window, without a JavaScript server</h1>
+<p>This directory can run directly in development or become an embedded release snapshot.</p>
+<button id="check">Check browser capabilities</button><pre id="report"></pre>
+<script type="module">
+const report=document.querySelector('#report');
+document.querySelector('#check').onclick=async()=>{
+  const result={origin:location.origin,secureContext:isSecureContext,serviceWorkerAPI:'serviceWorker' in navigator};
+  try{if(!result.serviceWorkerAPI)throw Error('Service worker API unavailable in this WebView');const registration=await navigator.serviceWorker.register('./sw.js');await navigator.serviceWorker.ready;result.workerScope=registration.scope;result.active=!!registration.active;}catch(error){result.error=String(error);}
+  report.textContent=JSON.stringify(result,null,2);
+};
+</script></html>

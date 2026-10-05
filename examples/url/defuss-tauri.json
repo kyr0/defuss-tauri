@@ -1,0 +1,5 @@
+{
+  "target": "http://127.0.0.1:5173",
+  "identifier": "dev.defuss.urlexample",
+  "appName": "Externally Served App"
+}

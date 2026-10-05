@@ -1,0 +1,17 @@
+# defuss-vae CI: the same bootstrap and verbs as local development, so CI cannot drift from `make verify`.
+name: verify
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Unit tests import src/*.ts through Node's built-in type stripping, which needs a current Node.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # setup installs a missing bun with the official installer; later steps get its dir on PATH.
+      - run: make setup && printf '%s\n' "$HOME/.bun/bin" >> "$GITHUB_PATH"
+      - run: make verify
