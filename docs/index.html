@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>defuss-tauri · one target in, a native app out</title>
+  <meta name="description" content="Wrap one HTTP(S) URL or one static folder in a Tauri app for macOS, Windows, Linux, iOS or Android — without putting Node, a dev server or your backend into the app.">
+  <script>
+    // Before paint, before df$ exists (defuss-shadcn Dark Mode guide): the saved choice, else the OS default.
+    let saved = '';
+    try { const raw = JSON.parse(localStorage.getItem('defuss-shadcn-theme')); saved = raw && raw.format === 'defuss-store' ? raw.value : raw; } catch {}
+    if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
+    }
+  </script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237c6cf0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M3 9h18'/%3E%3Cpath d='M7 13h5m-5 3h8'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/kyr0/defuss-shadcn@0.9.7/dist/components/core.min.css" integrity="sha384-XTkN5+CRRKO70LZ4OcV6O+kj6BY5lxdsRQ02oMz3kDCm9kd4B+16jbojkbgrbL0e" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/kyr0/defuss-shadcn@0.9.7/dist/theme/utils/shapes.min.css" integrity="sha384-rExm9IhHhoT1LadbK2Lip6FVim8iSP+aRnHcT+YZ6qgrYhEEjgYQsr9snhV2zr/u" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/kyr0/defuss-shadcn@0.9.7/dist/components/all.min.css" integrity="sha384-KNQj/Dk66BgA6c4mbwGVJt0hPZbRc8WN1s34HBwecCHZnN3vp631ctFMQgIjDo2f" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<svg class="sr-only" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7 13h5m-5 3h8"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14m7-7-7 7-7-7"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M7 7h10v10M7 17 17 7"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+  <symbol id="i-linkedin" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6m8 14h8"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M10 12.5 8 15l2 2.5m4-5 2 2.5-2 2.5M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12m0 0 8.7-5M12 12 3.3 7"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18 8.58 3.9a1 1 0 0 1 0 1.83l-8.58 3.9a2 2 0 0 1-1.66 0L2.6 7.91a1 1 0 0 1 0-1.83l8.58-3.9a2 2 0 0 1 1.66 0Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-smartphone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+</svg>
+
+<div class="dt-page" id="top">
+  <header class="mk-header" data-variant="floating">
+    <div class="mk-header-inner">
+      <a href="#top" class="mk-header-brand"><svg class="dt-icon" aria-hidden="true"><use href="#i-logo"/></svg><span class="mk-header-name" style="position:relative;display:inline-flex;">defuss-tauri
+        <span class="badge" data-variant="outline" data-size="sm" style="position:absolute;top:-0.6rem;right:-1.6rem;rotate:12deg;box-shadow:var(--shadow-md);border:1px solid var(--destructive);color:var(--destructive);padding:0 .3rem;font-size:.6rem;line-height:1.3;">BETA</span>
+      </span></a>
+      <nav class="mk-header-nav" aria-label="Main">
+        <ul class="nav-menu-list">
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#how">How it works</a></li>
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#usage">Usage</a></li>
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#certified">Certification</a></li>
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#install">Quick start</a></li>
+        </ul>
+      </nav>
+      <div class="mk-header-actions">
+        <a class="btn mk-header-wide" data-variant="outline" data-size="sm" href="https://github.com/kyr0/defuss-tauri/blob/main/README.md" target="_blank" rel="noopener"><svg class="dt-icon" aria-hidden="true"><use href="#i-book"/></svg>README<span class="sr-only"> (opens in a new tab)</span></a>
+        <label class="swap" data-variant="rotate" data-size="sm">
+          <input type="checkbox" id="theme-toggle" aria-label="Dark mode">
+          <span class="swap-on"><svg class="dt-icon" aria-hidden="true"><use href="#i-moon"/></svg></span>
+          <span class="swap-off"><svg class="dt-icon" aria-hidden="true"><use href="#i-sun"/></svg></span>
+        </label>
+        <a class="btn mk-header-wide" data-variant="ghost" data-size="icon" href="https://github.com/kyr0/defuss-tauri" aria-label="defuss-tauri on GitHub"><svg class="dt-icon" aria-hidden="true"><use href="#i-github"/></svg></a>
+        <button type="button" class="btn mk-header-menu" data-variant="ghost" data-size="icon" data-sheet-trigger="dt-menu" aria-haspopup="dialog" aria-label="Open menu"><svg class="dt-icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      </div>
+    </div>
+    <dialog id="dt-menu" class="sheet" data-side="right" role="dialog" aria-modal="true" aria-labelledby="dt-menu-title">
+      <div class="sheet-content">
+        <div class="sheet-header">
+          <h2 class="sheet-title" id="dt-menu-title">defuss-tauri</h2>
+        </div>
+        <div class="sheet-body">
+          <p class="mk-header-sheet-label">This page</p>
+          <ul class="mk-header-sheet-nav">
+            <li><a href="#how" data-sheet-close>How it works <small>From one target to a native app</small></a></li>
+            <li><a href="#contract" data-sheet-close>The contract <small>Your app stays yours</small></a></li>
+            <li><a href="#usage" data-sheet-close>Usage <small>dev, build, init, doctor, mobile</small></a></li>
+            <li><a href="#certified" data-sheet-close>Certification <small>Proven on macOS, open everywhere else</small></a></li>
+            <li><a href="#install" data-sheet-close>Quick start <small>A checkout or the published package</small></a></li>
+          </ul>
+        </div>
+        <div class="sheet-footer mk-header-sheet-actions">
+          <a class="btn" data-variant="outline" href="https://github.com/kyr0/defuss-tauri/blob/main/README.md" target="_blank" rel="noopener"><svg class="dt-icon" aria-hidden="true"><use href="#i-book"/></svg>Read the README<span class="sr-only"> (opens in a new tab)</span></a>
+          <a class="btn" data-variant="outline" href="https://github.com/kyr0/defuss-tauri">GitHub</a>
+        </div>
+      </div>
+    </dialog>
+  </header>
+
+  <main class="dt-main">
+
+    <section class="parallax" aria-label="Introduction" style="padding-block:clamp(4rem, 10vw, 7rem) 1rem">
+      <div class="parallax-layer" data-depth="far" aria-hidden="true">
+        <div class="pattern-grid" style="width:100%;height:100%;--shape-ink:color-mix(in oklch, var(--foreground) 7%, transparent);--shape-pattern:32px;mask-image:radial-gradient(55% 60% at 50% 45%, #000, transparent 75%)"></div>
+      </div>
+      <div class="parallax-layer" data-depth="mid" aria-hidden="true" style="--parallax-speed:22%;mask-image:linear-gradient(#000 55%, transparent 92%)">
+        <div class="corner-blob" style="position:absolute;inset-block-start:10%;inset-inline-start:8%;width:min(22rem, 45%);aspect-ratio:1;background:color-mix(in oklch, var(--chart-1) 40%, transparent);filter:blur(60px);opacity:.55"></div>
+        <div class="corner-blob-3" style="position:absolute;inset-block-start:28%;inset-inline-end:6%;width:min(18rem, 40%);aspect-ratio:1;background:color-mix(in oklch, var(--chart-3) 40%, transparent);filter:blur(60px);opacity:.5"></div>
+      </div>
+      <div class="parallax-content">
+        <section class="mk-hero" style="width:100%">
+          <div class="mk-hero-copy">
+            <a class="mk-hero-pill" href="#certified"><span class="badge" data-variant="default" data-size="sm">v0.3.0</span>Folder target verified on macOS in the real WKWebView — full platform certification is still open <svg class="dt-icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+            <h1 class="mk-hero-title">One target in, <strong>a native app</strong> out — <i>without shipping a runtime</i></h1>
+            <p class="dt-flip"><span class="text-rotate"><span>
+                <span class="dt-accent">macOS · Windows · Linux · iOS · Android</span>
+                <span class="dt-accent">byte-exact URLs</span>
+                <span class="dt-accent">a folder origin that survives restarts</span>
+                <span class="dt-accent">no Node inside the app</span>
+                <span class="dt-accent">any framework, one contract</span>
+                <span class="dt-accent">unknown stays unknown</span>
+            </span></span></p>
+            <p class="mk-hero-desc">Shipping a web app as a native app usually means shipping a runtime with it: a Node sidecar, a bundled static-site generator or a dev server the wrapper starts and stops for you. defuss-tauri takes the one thing your toolchain already produces — a running URL or a built folder — generates a small Rust host and runs a pinned Tauri CLI on it. Your framework, your toolchain and your server stay exactly as they are; defuss-tauri owns only the wrapper.</p>
+            <div class="mk-hero-actions">
+              <a class="btn" data-size="lg" href="#install">Quick start<svg class="dt-icon" aria-hidden="true"><use href="#i-arrow-down"/></svg></a>
+              <a class="btn" data-variant="outline" data-size="lg" href="#how">How it works<svg class="dt-icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+            </div>
+            <p class="mk-hero-note">CLI and generated host by <a href="https://www.linkedin.com/in/aronhomberg/" target="_blank" rel="noopener">Aron Homberg (kyr0)<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a> – Open Source (<a href="https://github.com/kyr0/defuss-tauri/blob/main/LICENSE" target="_blank" rel="noopener">MIT<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>)</p>
+          </div>
+        </section>
+        <div class="dt-intro" id="benefits">
+          <section class="dt-intro-item" aria-labelledby="b-1">
+            <span class="dt-intro-icon" aria-hidden="true"><svg class="dt-icon"><use href="#i-globe"/></svg></span>
+            <h3 id="b-1">Byte-exact URLs</h3>
+            <p>The URL opens exactly as given, including path, query and fragment, and packaging never contacts the service.</p>
+          </section>
+          <section class="dt-intro-item" aria-labelledby="b-2">
+            <span class="dt-intro-icon" aria-hidden="true"><svg class="dt-icon"><use href="#i-folder"/></svg></span>
+            <h3 id="b-2">A folder origin that survives restarts</h3>
+            <p>The folder is served from 127.0.0.1 on a port chosen once and kept, so the app's storage survives; release builds embed the selected files once.</p>
+          </section>
+          <section class="dt-intro-item" aria-labelledby="b-3">
+            <span class="dt-intro-icon" aria-hidden="true"><svg class="dt-icon"><use href="#i-ban"/></svg></span>
+            <h3 id="b-3">Nothing extra ships</h3>
+            <p>Secrets, VCS data, dependency trees and hidden files are excluded, <code>.well-known</code> is kept, and every symlink is rejected.</p>
+          </section>
+          <section class="dt-intro-item" aria-labelledby="b-4">
+            <span class="dt-intro-icon" aria-hidden="true"><svg class="dt-icon"><use href="#i-lock"/></svg></span>
+            <h3 id="b-4">Hash-owned host files</h3>
+            <p>A generated file you edited is refused, never overwritten. Signing and other changes in Tauri's <code>gen/</code> directory survive every run.</p>
+          </section>
+          <section class="dt-intro-item" aria-labelledby="b-5">
+            <span class="dt-intro-icon" aria-hidden="true"><svg class="dt-icon"><use href="#i-zap"/></svg></span>
+            <h3 id="b-5">No lifecycle</h3>
+            <p>The CLI never installs the target's dependencies, starts or stops its server, scans its port or requires it to be online during packaging.</p>
+          </section>
+          <section class="dt-intro-item" aria-labelledby="b-6">
+            <span class="dt-intro-icon" aria-hidden="true"><svg class="dt-icon"><use href="#i-help"/></svg></span>
+            <h3 id="b-6">Unknown stays unknown</h3>
+            <p>Certificate errors are never bypassed — self-signed dev servers load through a CA installed on the OS or device — and platforms without a real run are reported as open, never claimed.</p>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <div class="dt-flythrough">
+      <section class="parallax" data-sticky style="--parallax-length:4" aria-label="From one target to a native app">
+        <div class="parallax-stage" style="background:radial-gradient(circle at 50% 50%, color-mix(in oklch, var(--chart-3) 55%, #05060f), #05060f 72%);color:#fff;border-radius:var(--radius-xl)">
+          <div class="parallax-layer" data-motion="zoom fade" style="--parallax-scale:6"><svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><circle cx="200" cy="200" r="60" fill="none" stroke="#7c8cff" stroke-width="1.5" opacity=".7"/><circle cx="200" cy="200" r="110" fill="none" stroke="#b07cff" stroke-width="1" opacity=".5"/><circle cx="200" cy="200" r="170" fill="none" stroke="#7cf0ff" stroke-width=".8" opacity=".35"/></svg></div>
+          <div class="parallax-layer" data-motion="pass" style="animation-range:contain 0% contain 24%;z-index:1"><p class="dt-fly-line">one URL or one folder</p></div>
+          <div class="parallax-layer" data-motion="pass" style="animation-range:contain 15% contain 39%;z-index:2"><p class="dt-fly-line">validate</p></div>
+          <div class="parallax-layer" data-motion="pass" style="animation-range:contain 30% contain 54%;z-index:3"><p class="dt-fly-line">select</p></div>
+          <div class="parallax-layer" data-motion="pass" style="animation-range:contain 46% contain 70%;z-index:4"><p class="dt-fly-line">generate</p></div>
+          <div class="parallax-layer" data-motion="pass" style="animation-range:contain 61% contain 85%;z-index:5"><p class="dt-fly-line">build</p></div>
+          <div class="parallax-layer" data-motion="pass" style="animation-range:contain 76% contain 100%;z-index:6"><p class="dt-fly-line">a native app for five platforms</p></div>
+          <div class="parallax-layer" data-motion="spin" style="--parallax-turn:180deg;--parallax-speed:0%;z-index:-1;opacity:.25"><svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#fff" stroke-width=".6"><line x1="200" y1="200" x2="460" y2="200"/><line x1="200" y1="200" x2="425.2" y2="330"/><line x1="200" y1="200" x2="330" y2="425.2"/><line x1="200" y1="200" x2="200" y2="460"/><line x1="200" y1="200" x2="70" y2="425.2"/><line x1="200" y1="200" x2="-25.2" y2="330"/><line x1="200" y1="200" x2="-60" y2="200"/><line x1="200" y1="200" x2="-25.2" y2="70"/><line x1="200" y1="200" x2="70" y2="-25.2"/><line x1="200" y1="200" x2="200" y2="-60"/><line x1="200" y1="200" x2="330" y2="-25.2"/><line x1="200" y1="200" x2="425.2" y2="70"/></g></svg></div>
+        </div>
+      </section>
+    </div>
+
+    <section id="how" class="container dt-section parallax-reveal" aria-labelledby="how-title">
+      <section class="mk-features" style="width:100%">
+        <div class="mk-features-head">
+          <span class="mk-features-eyebrow">How it works</span>
+          <h2 class="mk-features-title" id="how-title">🖥️ From one target to a native app</h2>
+          <p class="mk-features-desc">You bring one target — a URL your toolchain serves or a folder it built. The CLI validates, selects and generates; a pinned Tauri CLI compiles and bundles; the generated Rust host opens the URL byte for byte or serves the folder from a 127.0.0.1 listener whose port is chosen once and kept. The CLI only ever reads the target.</p>
+        </div>
+        <figure class="diagram dt-loop" id="pipeline" data-type="flow" data-steps data-autoplay="400" data-fit="none" aria-label="The defuss-tauri pipeline: you bring one target, a running URL or a static folder, both read only; the CLI validates the configuration, platform and toolchain, selects the folder's files by prefix for folder targets, generates a hash-owned Rust host, a pinned Tauri CLI builds and bundles it, and the native app opens a URL byte for byte or serves the selected files from a loopback listener, with assets embedded in release and mobile builds">
+          <div class="diagram-canvas" style="--cols:6;--diagram-node-w:11rem">
+            <div class="diagram-node" data-node="you" data-tone="link" data-shape="pill" data-step="1" data-step-label="You bring one target" style="--col:3;--row:1">
+              <span class="diagram-node-name">You</span>
+              <span class="diagram-node-meta">URL or folder</span>
+            </div>
+            <div class="diagram-node" data-node="url" data-step="2" data-step-label="A URL your toolchain serves" style="--col:1;--row:2">
+              <span class="diagram-node-eyebrow">yours · read only</span>
+              <span class="diagram-node-name">Running URL</span>
+              <span class="diagram-node-meta">a dev server you started</span>
+            </div>
+            <div class="diagram-node" data-node="folder" data-step="3" data-step-label="A folder your toolchain built" style="--col:1;--row:3">
+              <span class="diagram-node-eyebrow">yours · read only</span>
+              <span class="diagram-node-name">Static folder</span>
+              <span class="diagram-node-meta">a build you produced</span>
+            </div>
+            <div class="diagram-node" data-node="validate" data-step="4" data-step-label="The CLI checks config, platform and toolchain" style="--col:2;--row:2">
+              <span class="diagram-node-eyebrow">CLI</span>
+              <span class="diagram-node-name">Validate</span>
+              <span class="diagram-node-meta">config · platform · toolchain probes</span>
+            </div>
+            <div class="diagram-node" data-node="select" data-step="5" data-step-label="The CLI picks the folder's files" style="--col:3;--row:3">
+              <span class="diagram-node-eyebrow">CLI</span>
+              <span class="diagram-node-name">Select</span>
+              <span class="diagram-node-meta">assets by prefix · secrets refused</span>
+              <ul class="diagram-node-chips"><li>folder targets only</li></ul>
+            </div>
+            <div class="diagram-node" data-node="generate" data-step="6" data-step-label="The CLI writes the Rust host" style="--col:4;--row:2">
+              <span class="diagram-node-eyebrow">CLI</span>
+              <span class="diagram-node-name">Generate</span>
+              <span class="diagram-node-meta">hash-owned Rust host</span>
+            </div>
+            <div class="diagram-node" data-node="build" data-step="7" data-step-label="A pinned Tauri CLI compiles and bundles" style="--col:5;--row:2">
+              <span class="diagram-node-eyebrow">pinned Tauri CLI</span>
+              <span class="diagram-node-name">Build</span>
+              <span class="diagram-node-meta">compiles and bundles</span>
+            </div>
+            <div class="diagram-node" data-node="app" data-tone="ok" data-step="8" data-step-label="The native app runs your frontend in the platform WebView" style="--col:6;--row:2">
+              <span class="diagram-node-name">Native app</span>
+              <span class="diagram-node-meta">URL byte for byte · folder: 127.0.0.1, port kept</span>
+              <ul class="diagram-node-chips"><li>release & mobile: assets embedded</li></ul>
+            </div>
+          </div>
+          <ol class="diagram-edges">
+            <li class="diagram-edge" data-from="you" data-to="validate" data-line="dashed">one target</li>
+            <li class="diagram-edge" data-from="url" data-to="validate" data-line="dashed">read only</li>
+            <li class="diagram-edge" data-from="folder" data-to="validate" data-line="dashed">read only</li>
+            <li class="diagram-edge" data-from="validate" data-to="select">select</li>
+            <li class="diagram-edge" data-from="select" data-to="generate" data-flow="2400" data-flow-delay="0"></li>
+            <li class="diagram-edge" data-from="generate" data-to="build" data-flow="2400" data-flow-delay="700"></li>
+            <li class="diagram-edge" data-from="build" data-to="app" data-tone="ok" data-flow="2400" data-flow-delay="1400">bundles</li>
+          </ol>
+        </figure>
+        <p class="dt-footnote dt-scroll-hint">Scroll the diagram sideways to see the whole pipeline.</p>
+      </section>
+
+      <div class="dt-reads">
+        <div class="dt-prose">
+          <h3>What the CLI actually does</h3>
+          <p>It takes the one thing your toolchain already produces — a running URL or a built folder — generates a small Rust host and runs a pinned Tauri CLI on it. It never builds, installs, starts or stops your application, so any framework works as long as it produces a URL or a folder.</p>
+          <p>Validation runs first, so Tauri's own installers never run: what is missing is listed, not installed. Only <code>src/tooling.ts</code> may spawn build processes. <code>--dry-run</code> reads and validates only — no writes, commands or network — and <code>--prepare-only</code> generates the Rust host without any toolchain.</p>
+        </div>
+        <div class="dt-term">
+          <div class="mockup-code" data-chrome="mac" data-title="from a checkout" data-wrap data-lang="bash" id="cmd-prepare">
+            <pre data-prefix="$"><code>bun install</code></pre>
+            <pre data-prefix="$"><code>make example-static ARGS=--prepare-only</code></pre>
+            <pre data-tone="success"><code>Prepared <repo>/examples/static; 2 selected assets (1306 bytes). Host: <repo>/tmp/examples/static/managed/dev/src-tauri</code></pre>
+            <pre data-prefix="#" data-tone="muted"><code>make example-static compiles that host and opens the example in a native window</code></pre>
+            <pre data-prefix="#" data-tone="muted"><code>the first run also installs the pinned Tauri CLI into the managed directory</code></pre>
+          </div>
+          <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-prepare"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+          <span class="sr-only" role="status" id="cmd-prepare-status"></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="drivers" class="container dt-section parallax-reveal" aria-labelledby="drivers-title">
+      <header class="mk-section-header">
+        <div class="mk-section-header-copy">
+          <span class="mk-section-header-eyebrow">Stages</span>
+          <h2 class="mk-section-header-title" id="drivers-title">🧭 Who drives what</h2>
+          <p class="mk-section-header-desc">Four drivers, one boundary each: your toolchain produces the target, the CLI validates, selects and generates, a pinned Tauri CLI builds, and the generated Rust host runs inside the app.</p>
+        </div>
+      </header>
+      <div class="dt-kinds">
+        <section class="dt-kind" data-kind="you" aria-labelledby="k-you">
+          <h3 id="k-you"><svg class="dt-icon" aria-hidden="true"><use href="#i-user"/></svg>Your toolchain</h3>
+          <p>Produces the URL or the folder. The CLI only ever reads it.</p>
+        </section>
+        <section class="dt-kind" data-kind="cli" aria-labelledby="k-cli">
+          <h3 id="k-cli"><svg class="dt-icon" aria-hidden="true"><use href="#i-terminal"/></svg>The CLI</h3>
+          <p>Validates, selects and generates. Only <code>src/tooling.ts</code> may spawn build processes, and nothing writes silently.</p>
+        </section>
+        <section class="dt-kind" data-kind="tauri" aria-labelledby="k-tauri">
+          <h3 id="k-tauri"><svg class="dt-icon" aria-hidden="true"><use href="#i-package"/></svg>A pinned Tauri CLI</h3>
+          <p>Installed into the managed directory, never globally. Compiles and bundles the host.</p>
+        </section>
+        <section class="dt-kind" data-kind="host" aria-labelledby="k-host">
+          <h3 id="k-host"><svg class="dt-icon" aria-hidden="true"><use href="#i-zap"/></svg>The Rust host</h3>
+          <p>Opens a URL byte for byte, or serves the selected files from a 127.0.0.1 listener. Executes no application or backend code; the platform WebView runs your frontend.</p>
+        </section>
+      </div>
+      <div class="table-container dt-table">
+        <table class="table">
+          <caption class="table-caption">The stages from target to running app.</caption>
+          <thead>
+            <tr class="table-row">
+              <th class="table-head" scope="col">Stage</th>
+              <th class="table-head" scope="col">Kind</th>
+              <th class="table-head" scope="col">Who drives it</th>
+              <th class="table-head" scope="col">What it does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="table-row">
+              <td class="table-cell">target</td>
+              <td class="table-cell"><span class="badge" data-variant="outline" data-size="sm">You</span></td>
+              <td class="table-cell">you and your toolchain</td>
+              <td class="table-cell">Produces the URL or the folder. The CLI only ever reads it.</td>
+            </tr>
+            <tr class="table-row">
+              <td class="table-cell">validate</td>
+              <td class="table-cell"><span class="badge" data-variant="default" data-size="sm">CLI</span></td>
+              <td class="table-cell">the CLI</td>
+              <td class="table-cell">Checks the configuration, the platform and the toolchain first, so Tauri's own installers never run; what is missing is listed, not installed.</td>
+            </tr>
+            <tr class="table-row">
+              <td class="table-cell">select</td>
+              <td class="table-cell"><span class="badge" data-variant="default" data-size="sm">CLI</span></td>
+              <td class="table-cell">the CLI, folder targets only</td>
+              <td class="table-cell">Picks the folder's files by explicit prefixes and hashes them, refusing secrets, dependency trees and symlinks instead of staging the project wholesale.</td>
+            </tr>
+            <tr class="table-row">
+              <td class="table-cell">generate</td>
+              <td class="table-cell"><span class="badge" data-variant="default" data-size="sm">CLI</span></td>
+              <td class="table-cell">the CLI</td>
+              <td class="table-cell">Writes the Rust host and owns its files by hash: an edited file stops the run, it is never silently replaced. Tauri's <code>gen/</code> project belongs to you and Tauri and is never regenerated.</td>
+            </tr>
+            <tr class="table-row">
+              <td class="table-cell">build</td>
+              <td class="table-cell"><span class="badge" data-variant="secondary" data-size="sm">Tauri CLI</span></td>
+              <td class="table-cell">a pinned Tauri CLI, installed into the managed directory</td>
+              <td class="table-cell">Compiles and bundles the host.</td>
+            </tr>
+            <tr class="table-row">
+              <td class="table-cell">run</td>
+              <td class="table-cell"><span class="badge" data-variant="secondary" data-size="sm">Rust host</span></td>
+              <td class="table-cell">the Rust host inside the app</td>
+              <td class="table-cell">Opens a URL byte for byte, or serves the selected files from a 127.0.0.1 listener whose port is chosen once and kept. The host executes no application or backend code; the platform WebView runs your frontend.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="contract" class="container dt-section parallax-reveal" aria-labelledby="contract-title">
+      <header class="mk-section-header">
+        <div class="mk-section-header-copy">
+          <span class="mk-section-header-eyebrow">The contract</span>
+          <h2 class="mk-section-header-title" id="contract-title">🤝 Your app stays yours</h2>
+          <p class="mk-section-header-desc">defuss-tauri does not ship a one-size-fits-all scaffold. It enforces a small contract, and any project that already meets it works unchanged. Each card names the rule and why it beats the plausible alternative.</p>
+        </div>
+      </header>
+      <div class="dt-contract">
+        <section class="dt-kind" aria-labelledby="c-1">
+          <h3 id="c-1"><svg class="dt-icon" aria-hidden="true"><use href="#i-layers"/></svg>Any framework, one contract</h3>
+          <p><strong>Your toolchain produces a running URL or a folder of files; everything before that point is yours.</strong> <em>Why: a wrapper that understood frameworks would age with every one of them.</em></p>
+        </section>
+        <section class="dt-kind" aria-labelledby="c-2">
+          <h3 id="c-2"><svg class="dt-icon" aria-hidden="true"><use href="#i-ban"/></svg>No lifecycle representation</h3>
+          <p><strong>The CLI never installs the target's dependencies, spawns its server, sends it shutdown signals, scans or rewrites its port, or requires it to be online during packaging.</strong> <em>Why: a process the CLI cannot observe cannot be managed, only corrupted.</em></p>
+        </section>
+        <section class="dt-kind" aria-labelledby="c-3">
+          <h3 id="c-3"><svg class="dt-icon" aria-hidden="true"><use href="#i-package"/></svg>Selection, not staging</h3>
+          <p><strong>Assets are chosen by exact path prefixes, secret and VCS exclusions always win, and <code>.well-known</code> is preserved.</strong> <em>Why: whole-project staging ships your <code>node_modules</code>, your build cache and, eventually, a secret.</em></p>
+        </section>
+        <section class="dt-kind" aria-labelledby="c-4">
+          <h3 id="c-4"><svg class="dt-icon" aria-hidden="true"><use href="#i-lock"/></svg>Generated files are hash-owned</h3>
+          <p><strong>Edit one and the CLI refuses to run instead of deleting your customization; signing and other changes in Tauri's <code>gen/</code> directory survive every run.</strong> <em>Why: a generator that silently overwrites teaches you never to touch its output, which breaks the moment you must.</em></p>
+        </section>
+        <section class="dt-kind" aria-labelledby="c-5">
+          <h3 id="c-5"><svg class="dt-icon" aria-hidden="true"><use href="#i-help"/></svg>Unknown stays <code>UNKNOWN</code></h3>
+          <p><strong>Certificate errors are never bypassed and no trust store is edited — self-signed HTTPS means a CA you install — and secure-context and service-worker claims come only from probes in the real embedded WebView, never from Chromium or Safari, with unproven platforms staying open.</strong> <em>Why: a support claim without evidence is worse than none. The open work is listed in <a href="https://github.com/kyr0/defuss-tauri/blob/main/docs/NATIVE_GATES.md" target="_blank" rel="noopener">docs/NATIVE_GATES.md<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>.</em></p>
+        </section>
+        <section class="dt-kind" aria-labelledby="c-6">
+          <h3 id="c-6"><svg class="dt-icon" aria-hidden="true"><use href="#i-wrench"/></svg>Bring your own Rust — opt-in</h3>
+          <p><strong><code>rust.extensions</code> points the host at crates you own: their <code>defuss_tauri_extend</code> wraps the Tauri builder first, and capability objects ship as data.</strong> <em>Why opt-in: the default host stays wrapper-only — no IPC surface you didn't write yourself — and your native code gets the review a native change deserves. Try it: <code>make example-rust-extension</code> adds a custom Rust menu.</em></p>
+        </section>
+      </div>
+    </section>
+
+    <section id="usage" class="container dt-section parallax-reveal" aria-labelledby="usage-title">
+      <div class="corner-leaf pattern-dots dt-install">
+        <header class="mk-section-header">
+          <div class="mk-section-header-copy">
+            <span class="mk-section-header-eyebrow">Usage</span>
+            <h2 class="mk-section-header-title" id="usage-title">⌨️ dev, build, init and doctor</h2>
+            <p class="mk-section-header-desc">The examples run the published package with <code>bunx defuss-tauri</code>; from a checkout the same interface is <code>node dist/cli.js</code> after <code>make setup</code> has built <code>dist/</code>. Without a command the CLI runs <code>dev</code>; without a target it uses <code>./defuss-tauri.json</code>, else the current directory.</p>
+          </div>
+        </header>
+        <div class="tabs dt-tabs">
+          <div class="tab-list" role="tablist" aria-label="CLI commands">
+            <button class="tab-trigger dt-tab" role="tab" aria-selected="true" aria-controls="panel-dev" id="tab-dev">
+              <svg class="dt-icon dt-tab-icon" aria-hidden="true"><use href="#i-terminal"/></svg>
+              <span><span class="dt-tab-title">Dev</span><span class="dt-tab-desc">wrap a server or a folder</span></span>
+            </button>
+            <button class="tab-trigger dt-tab" role="tab" aria-selected="false" aria-controls="panel-build" id="tab-build" tabindex="-1">
+              <svg class="dt-icon dt-tab-icon" aria-hidden="true"><use href="#i-package"/></svg>
+              <span><span class="dt-tab-title">Build</span><span class="dt-tab-desc">package the target</span></span>
+            </button>
+            <button class="tab-trigger dt-tab" role="tab" aria-selected="false" aria-controls="panel-mobile" id="tab-mobile" tabindex="-1">
+              <svg class="dt-icon dt-tab-icon" aria-hidden="true"><use href="#i-smartphone"/></svg>
+              <span><span class="dt-tab-title">Mobile</span><span class="dt-tab-desc">iOS and Android</span></span>
+            </button>
+            <button class="tab-trigger dt-tab" role="tab" aria-selected="false" aria-controls="panel-init" id="tab-init" tabindex="-1">
+              <svg class="dt-icon dt-tab-icon" aria-hidden="true"><use href="#i-wrench"/></svg>
+              <span><span class="dt-tab-title">Init · doctor</span><span class="dt-tab-desc">config and findings</span></span>
+            </button>
+          </div>
+
+          <div class="tab-content" role="tabpanel" id="panel-dev" aria-labelledby="tab-dev" tabindex="0">
+            <div class="dt-way">
+              <div class="dt-way-copy">
+                <h3><svg class="dt-icon" aria-hidden="true"><use href="#i-terminal"/></svg>Dev: wrap a running server or a folder</h3>
+                <p>Start the service behind a URL yourself; defuss-tauri never supervises it.</p>
+                <ul>
+                  <li>In desktop <code>dev</code>, edits to existing files show up on reload; new files need a restart.</li>
+                  <li>The native menu's <strong>Reload configured target</strong> (Cmd/Ctrl+R) reloads.</li>
+                  <li><code>https://user:password@host</code> is rejected; log in through the service instead.</li>
+                </ul>
+              </div>
+              <div class="dt-terms">
+                <div class="dt-term">
+                  <div class="mockup-code" data-chrome="mac" data-title="dev" data-wrap data-lang="bash" id="cmd-usage-dev">
+                    <pre data-prefix="$"><code>bunx defuss-tauri dev http://127.0.0.1:5173</code></pre>
+                    <pre data-prefix="$"><code>bunx defuss-tauri dev ./public</code></pre>
+                  </div>
+                  <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-usage-dev"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+                  <span class="sr-only" role="status" id="cmd-usage-dev-status"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" role="tabpanel" id="panel-build" aria-labelledby="tab-build" tabindex="0" hidden>
+            <div class="dt-way">
+              <div class="dt-way-copy">
+                <h3><svg class="dt-icon" aria-hidden="true"><use href="#i-package"/></svg>Build: package the target</h3>
+                <p>Release builds embed the selected files once; <code>--config</code> picks a configuration file.</p>
+                <ul>
+                  <li>Desktop targets must match the build machine.</li>
+                  <li>Folder assets are selected by prefix, never staged wholesale.</li>
+                  <li><code>--dry-run</code> reads and validates only: no writes, commands or network.</li>
+                </ul>
+              </div>
+              <div class="dt-terms">
+                <div class="dt-term">
+                  <div class="mockup-code" data-chrome="mac" data-title="build" data-wrap data-lang="bash" id="cmd-usage-build">
+                    <pre data-prefix="$"><code>bunx defuss-tauri build ./dist</code></pre>
+                    <pre data-prefix="$"><code>bunx defuss-tauri build --config app/defuss-tauri.json</code></pre>
+                  </div>
+                  <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-usage-build"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+                  <span class="sr-only" role="status" id="cmd-usage-build-status"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" role="tabpanel" id="panel-mobile" aria-labelledby="tab-mobile" tabindex="0" hidden>
+            <div class="dt-way">
+              <div class="dt-way-copy">
+                <h3><svg class="dt-icon" aria-hidden="true"><use href="#i-smartphone"/></svg>Mobile: iOS and Android</h3>
+                <p>The CLI never installs SDKs, Homebrew packages or Rust targets; it checks them first so Tauri's own installers never run.</p>
+                <ul>
+                  <li><code>make setup-ios</code> and <code>make setup-android</code> install them on request and end with <code>doctor</code>, which fails while anything is missing.</li>
+                  <li>Folder targets embed their files even in <code>dev</code>, because a phone cannot read this disk; restart <code>dev</code> after changing files.</li>
+                  <li>Android <code>dev</code> runs <code>adb reverse</code>, so start the emulator or connect the device first.</li>
+                </ul>
+              </div>
+              <div class="dt-terms">
+                <div class="dt-term">
+                  <div class="mockup-code" data-chrome="mac" data-title="mobile" data-wrap data-lang="bash" id="cmd-usage-mobile">
+                    <pre data-prefix="$"><code>bunx defuss-tauri doctor --platform ios</code></pre>
+                    <pre data-prefix="$"><code>bunx defuss-tauri dev --platform ios</code></pre>
+                    <pre data-prefix="$"><code>bunx defuss-tauri build --platform android</code></pre>
+                  </div>
+                  <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-usage-mobile"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+                  <span class="sr-only" role="status" id="cmd-usage-mobile-status"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" role="tabpanel" id="panel-init" aria-labelledby="tab-init" tabindex="0" hidden>
+            <div class="dt-way">
+              <div class="dt-way-copy">
+                <h3><svg class="dt-icon" aria-hidden="true"><use href="#i-wrench"/></svg>Init and doctor</h3>
+                <p><code>init</code> writes a configuration file; <code>doctor</code> reports toolchain and configuration findings and lists exactly what is missing.</p>
+                <ul>
+                  <li>Removed flags of the old package (<code>--host</code>, <code>--skip-ssg</code>, <code>--node-version</code> and others) fail with a migration hint.</li>
+                  <li><code>defuss-tauri.schema.json</code> gives editors completion for the file.</li>
+                </ul>
+              </div>
+              <div class="dt-terms">
+                <div class="dt-term">
+                  <div class="mockup-code" data-chrome="mac" data-title="init · doctor" data-wrap data-lang="bash" id="cmd-usage-init">
+                    <pre data-prefix="$"><code>bunx defuss-tauri init --app-name "My App"</code></pre>
+                    <pre data-prefix="$"><code>bunx defuss-tauri doctor</code></pre>
+                  </div>
+                  <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-usage-init"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+                  <span class="sr-only" role="status" id="cmd-usage-init-status"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dt-options">
+          <div class="table-container">
+            <table class="table" data-size="sm">
+              <caption class="table-caption">Frequently used options. CLI options override the file, which overrides defaults.</caption>
+              <thead>
+                <tr class="table-row">
+                  <th class="table-head" scope="col">Option</th>
+                  <th class="table-head" scope="col">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="table-row"><td class="table-cell">--config <file></td><td class="table-cell">JSON configuration; no search in parent directories</td></tr>
+                <tr class="table-row"><td class="table-cell">--entry <file.html></td><td class="table-cell">HTML entry of a folder; default <code>index.html</code> or the only HTML file in the folder root</td></tr>
+                <tr class="table-row"><td class="table-cell">--platform</td><td class="table-cell"><code>native|macos|windows|linux|ios|android</code>; desktop targets must match the build machine</td></tr>
+                <tr class="table-row"><td class="table-cell">--app-name · --identifier · --version</td><td class="table-cell">App metadata (<code>--version</code> is the app's semantic version)</td></tr>
+                <tr class="table-row"><td class="table-cell">--port, -p <port></td><td class="table-cell">Fixed port of the folder transport; otherwise chosen once and kept</td></tr>
+                <tr class="table-row"><td class="table-cell">--strict-security</td><td class="table-cell">Disables the WebView inspector</td></tr>
+                <tr class="table-row"><td class="table-cell">--prepare-only</td><td class="table-cell">Generate the host, run no toolchain</td></tr>
+                <tr class="table-row"><td class="table-cell">--skip-install</td><td class="table-cell">Never install the managed Tauri CLI</td></tr>
+                <tr class="table-row"><td class="table-cell">--dry-run</td><td class="table-cell">Read and validate only: no writes, commands or network</td></tr>
+                <tr class="table-row"><td class="table-cell">--debug, -d</td><td class="table-cell">Verbose native tool output (not a Cargo debug build)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="dt-term">
+            <div class="mockup-code" data-chrome="mac" data-title="defuss-tauri.json" data-wrap data-lang="json" id="cmd-usage-config">
+              <pre data-prefix="#" data-tone="muted"><code>the smallest configuration targets a URL</code></pre>
+              <pre><code>{ "target": "http://127.0.0.1:5173" }</code></pre>
+              <pre data-prefix="#" data-tone="muted"><code>a folder target with metadata, extensions and icons</code></pre>
+              <pre><code>{</code></pre>
+              <pre><code>  "target": "./public",</code></pre>
+              <pre><code>  "entry": "game.html",</code></pre>
+              <pre><code>  "appName": "My Game",</code></pre>
+              <pre><code>  "identifier": "dev.example.game",</code></pre>
+              <pre><code>  "version": "1.0.0",</code></pre>
+              <pre><code>  "window": { "width": 1280, "height": 800, "resizable": true },</code></pre>
+              <pre><code>  "rust": { "extensions": [{ "path": "./rust/native-logins", "package": "native-logins" }] },</code></pre>
+              <pre><code>  "icons": ["./assets/icon.png", "./assets/icon.ico", "./assets/icon.icns"],</code></pre>
+              <pre><code>  "assets": { "spa": false, "headers": { "Cross-Origin-Opener-Policy": "same-origin" } }</code></pre>
+              <pre><code>}</code></pre>
+            </div>
+            <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-usage-config"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+            <span class="sr-only" role="status" id="cmd-usage-config-status"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="certified" class="container dt-section parallax-reveal" aria-labelledby="certified-title">
+      <section class="mk-stats" style="width:100%">
+        <div class="mk-stats-layout">
+          <div class="mk-stats-copy">
+            <div class="mk-stats-head">
+              <h2 class="mk-stats-title" id="certified-title">Proven on macOS, open everywhere else<sup class="dt-footnote-mark">*</sup></h2>
+              <p class="mk-stats-desc">On macOS 15.7 (arm64) this is proven, not promised: <code>make native-test</code>, <code>make mobile-check</code> and <code>make native-probe</code> pass, and the real embedded WKWebView — the same WebKit your shipped app runs on — served the folder target as a secure context on 127.0.0.1, with a service worker that activates, controls the page and intercepts every fetch, and localStorage, CacheStorage and IndexedDB that survive a full restart. The boundary is just as honest: each layer below proves exactly its own scope, Windows, Linux, iOS and Android are still open, and anything without evidence stays <code>UNKNOWN</code> — never dressed up as working. <a href="https://github.com/kyr0/defuss-tauri/blob/main/docs/NATIVE_GATES.md" target="_blank" rel="noopener">docs/NATIVE_GATES.md<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a> tracks the open native work.</p>
+            </div>
+            <div class="mk-stats-grid">
+              <div class="mk-stat"><span class="mk-stat-value">macOS</span><span class="mk-stat-label">runs the folder-loopback scope end to end in the real WKWebView: secure context, service worker activation, control and interception, storage that survives a restart</span></div>
+              <div class="mk-stat"><span class="mk-stat-value">6</span><span class="mk-stat-label">scopes with direct evidence in this repository's fast gates, from <code>make test</code> to <code>make native-probe</code> — CLI, tarball, sockets, mobile cross-compile and the WebView probe</span></div>
+              <div class="mk-stat"><span class="mk-stat-value">27</span><span class="mk-stat-label">platform, profile and scope reports the release gate demands; only the folder-loopback scope has a runner so far</span></div>
+              <div class="mk-stat"><span class="mk-stat-value">0</span><span class="mk-stat-label">production npm dependencies; the native app never acquires Node, Bun or npm</span></div>
+            </div>
+            <div class="dt-open" aria-label="Still open, no evidence yet">
+              <span class="badge" data-variant="outline" data-size="sm">URL targets</span>
+              <span class="badge" data-variant="outline" data-size="sm">HTTPS with an installed self-signed CA: no verified run yet</span>
+              <span class="badge" data-variant="outline" data-size="sm">upgrade and distribution scopes</span>
+              <span class="badge" data-variant="outline" data-size="sm">Windows · Linux · iOS · Android runs</span>
+            </div>
+            <p class="dt-footnote">* Each layer proves only its own scope. Toolchain observations from 2026-10-05: Node 24.14, rustc 1.96, macOS 15.7 (arm64). <code>make release-gate</code> is the certification boundary.</p>
+          </div>
+          <figure class="mk-stats-media card dt-tasks">
+            <figcaption class="card-header"><h3 class="card-title">The verified scopes</h3><p class="card-description">What each gate exercises, and what that evidence proves.</p></figcaption>
+            <div class="card-content">
+              <div class="table-container">
+                <table class="table" data-size="sm">
+                  <thead>
+                    <tr class="table-row">
+                      <th class="table-head" scope="col">Scope</th>
+                      <th class="table-head" scope="col">Evidence</th>
+                      <th class="table-head" scope="col">What it proves</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="table-row"><td class="table-cell">CLI core</td><td class="table-cell"><code>make test</code>, <code>make coverage</code></td><td class="table-cell">Validation, asset selection and host generation, against real files, processes and isolated Git repositories</td></tr>
+                    <tr class="table-row"><td class="table-cell">Packed tarball</td><td class="table-cell"><code>make e2e</code></td><td class="table-cell">The packed npm tarball consumed like a user: its CLI runs against real fixture targets</td></tr>
+                    <tr class="table-row"><td class="table-cell">Host and transport</td><td class="table-cell"><code>make native-test</code></td><td class="table-cell">Transport socket tests pass, and the generated host resolves as one Cargo workspace, warning-free for every feature set</td></tr>
+                    <tr class="table-row"><td class="table-cell">Mobile compile</td><td class="table-cell"><code>make mobile-check</code></td><td class="table-cell">The generated host type-checks warning-free for iOS Simulator and Android; no simulator or device run yet</td></tr>
+                    <tr class="table-row"><td class="table-cell">WebView probe</td><td class="table-cell"><code>make native-probe</code></td><td class="table-cell">macOS, folder target: the real embedded WebView runs the app twice — secure context, service worker, storage that survives a restart</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </figure>
+        </div>
+      </section>
+    </section>
+
+    <section id="install" class="container dt-section parallax-reveal" aria-labelledby="install-title">
+      <div class="corner-leaf pattern-dots dt-install">
+        <header class="mk-section-header">
+          <div class="mk-section-header-copy">
+            <span class="mk-section-header-eyebrow">Quick start</span>
+            <h2 class="mk-section-header-title" id="install-title">🚀 Up and running in a minute</h2>
+            <p class="mk-section-header-desc">Requirements: Node ≥ 20.19 for the CLI. Bun installs the development dependencies (<code>make setup</code> installs Bun if it is missing); <code>dev</code> and <code>build</code> also need Rust and Tauri's OS prerequisites. Generated apps need macOS 14 or iOS 17 or later.</p>
+          </div>
+        </header>
+        <div class="tabs dt-tabs">
+          <div class="tab-list" role="tablist" aria-label="Quick start">
+            <button class="tab-trigger dt-tab" role="tab" aria-selected="true" aria-controls="panel-checkout" id="tab-checkout">
+              <svg class="dt-icon dt-tab-icon" aria-hidden="true"><use href="#i-terminal"/></svg>
+              <span><span class="dt-tab-title">From a checkout</span><span class="dt-tab-desc">prepare the example</span></span>
+            </button>
+            <button class="tab-trigger dt-tab" role="tab" aria-selected="false" aria-controls="panel-npm" id="tab-npm" tabindex="-1">
+              <svg class="dt-icon dt-tab-icon" aria-hidden="true"><use href="#i-package"/></svg>
+              <span><span class="dt-tab-title">Published package</span><span class="dt-tab-desc">bunx, no checkout</span></span>
+            </button>
+          </div>
+
+          <div class="tab-content" role="tabpanel" id="panel-checkout" aria-labelledby="tab-checkout" tabindex="0">
+            <div class="dt-way">
+              <div class="dt-way-copy">
+                <h3><svg class="dt-icon" aria-hidden="true"><use href="#i-terminal"/></svg>From a checkout</h3>
+                <p>Prepares the example's Rust host without any toolchain; <code>make example-static</code> then compiles it and opens the example in a native window.</p>
+                <ul>
+                  <li>The first run also installs the pinned Tauri CLI into the managed directory, which takes a few minutes.</li>
+                  <li>Generated hosts go to the ignored <code>tmp/</code>, never into <code>examples/</code>.</li>
+                  <li><code>make example-rust-extension</code> opens the custom-Rust example instead: a native menu from your own crate.</li>
+                </ul>
+              </div>
+              <div class="dt-terms">
+                <div class="dt-term">
+                  <div class="mockup-code" data-chrome="mac" data-title="from a checkout" data-wrap data-lang="bash" id="cmd-quick-checkout">
+                    <pre data-prefix="$"><code>bun install</code></pre>
+                    <pre data-prefix="$"><code>make example-static ARGS=--prepare-only</code></pre>
+                    <pre data-tone="success"><code>Prepared <repo>/examples/static; 2 selected assets (1306 bytes). Host: <repo>/tmp/examples/static/managed/dev/src-tauri</code></pre>
+                    <pre data-prefix="#" data-tone="muted"><code>make example-static opens the example in a native window</code></pre>
+                  </div>
+                  <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-quick-checkout"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+                  <span class="sr-only" role="status" id="cmd-quick-checkout-status"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-content" role="tabpanel" id="panel-npm" aria-labelledby="tab-npm" tabindex="0" hidden>
+            <div class="dt-way">
+              <div class="dt-way-copy">
+                <h3><svg class="dt-icon" aria-hidden="true"><use href="#i-package"/></svg>Published package</h3>
+                <p>Wrap a URL your toolchain already serves, or a folder it built. Start the service behind a URL yourself; defuss-tauri never supervises it.</p>
+                <ul>
+                  <li>Without a command the CLI runs <code>dev</code>; without a target it uses <code>./defuss-tauri.json</code>, else the current directory.</li>
+                  <li><code>init</code> writes the configuration file for you.</li>
+                </ul>
+              </div>
+              <div class="dt-terms">
+                <div class="dt-term">
+                  <div class="mockup-code" data-chrome="mac" data-title="published package" data-wrap data-lang="bash" id="cmd-quick-npm">
+                    <pre data-prefix="$"><code>bunx defuss-tauri dev http://127.0.0.1:5173</code></pre>
+                    <pre data-prefix="$"><code>bunx defuss-tauri dev ./public</code></pre>
+                    <pre data-prefix="$"><code>bunx defuss-tauri build ./dist</code></pre>
+                  </div>
+                  <button type="button" class="btn dt-copy" data-variant="secondary" data-size="sm" data-copy="cmd-quick-npm"><svg class="dt-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
+                  <span class="sr-only" role="status" id="cmd-quick-npm-status"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="container dt-section parallax-reveal" data-reveal="zoom">
+      <section class="mk-cta" data-variant="dark" aria-labelledby="cta-title">
+        <div class="mk-cta-inner">
+          <div class="mk-cta-copy">
+            <h2 class="mk-cta-title" id="cta-title">Wrap the target your toolchain already produces</h2>
+            <p class="mk-cta-desc">One URL or one folder, a small generated Rust host, and a pinned Tauri CLI that builds it. Your framework, your toolchain and your server stay exactly as they are; defuss-tauri owns only the wrapper.</p>
+          </div>
+          <div class="mk-cta-actions">
+            <a class="btn" data-size="lg" href="https://github.com/kyr0/defuss-tauri" target="_blank" rel="noopener">View on GitHub<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>
+            <a class="btn" data-variant="outline" data-size="lg" href="https://github.com/kyr0/defuss-tauri/blob/main/README.md" target="_blank" rel="noopener">Read the README<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>
+          </div>
+          <p class="mk-cta-note">MIT licensed · Node ≥ 20.19 · Rust + Tauri OS prerequisites for dev and build</p>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <footer class="mk-footer" style="width:100%">
+    <div class="mk-footer-inner">
+      <nav class="mk-footer-nav" aria-label="Footer">
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">Project</h3>
+          <ul class="mk-footer-list">
+            <li><a href="https://github.com/kyr0/defuss-tauri" target="_blank" rel="noopener">Source code<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-tauri/blob/main/README.md" target="_blank" rel="noopener">README<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-tauri/blob/main/ARCH.md" target="_blank" rel="noopener">Architecture and security model<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-tauri/blob/main/docs/NATIVE_GATES.md" target="_blank" rel="noopener">Open native work<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+          </ul>
+        </div>
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">Reference</h3>
+          <ul class="mk-footer-list">
+            <li><a href="https://github.com/kyr0/defuss-tauri/blob/main/defuss-tauri.schema.json" target="_blank" rel="noopener">Configuration schema<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-tauri/blob/main/.env.example" target="_blank" rel="noopener">Environment variables<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-tauri/tree/main/examples" target="_blank" rel="noopener">Examples: static and URL<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-tauri/blob/main/AGENTS.md" target="_blank" rel="noopener">Contributing<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+          </ul>
+        </div>
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">Ecosystem</h3>
+          <ul class="mk-footer-list">
+            <li><a href="https://github.com/kyr0/defuss" target="_blank" rel="noopener">defuss<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://shadcn.defuss.org/index.html" target="_blank" rel="noopener">defuss-shadcn<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-vae" target="_blank" rel="noopener">defuss-vae<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+          </ul>
+        </div>
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">Professional consulting services</h3>
+          <aside class="corner-leaf dt-ad" aria-label="Consulting by Aron Homberg">
+            <div class="dt-ad-head">
+              <div class="aura aura-glow aura-gold dt-ad-portrait" style="--shape-round:1.5rem"><img class="shape-squircle" src="assets/aron-homberg.jpg" width="400" height="400" alt="Portrait of Aron Homberg" loading="lazy"></div>
+              <div>
+                <p class="dt-ad-name">Aron Homberg</p>
+                <p class="dt-ad-role">Freelance expert · independent AI researcher</p>
+              </div>
+            </div>
+            <a class="btn" data-size="sm" href="https://www.linkedin.com/in/aronhomberg/" target="_blank" rel="noopener"><svg class="dt-icon dt-icon-fill" aria-hidden="true"><use href="#i-linkedin"></use></svg>Connect on LinkedIn<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"></use></svg><span class="sr-only"> (opens in a new tab)</span></a>
+          </aside>
+        </div>
+      </nav>
+      <hr class="separator mk-footer-rule">
+      <div class="mk-footer-bottom">
+        <a href="#top" class="mk-footer-brand" aria-label="Back to the top"><svg class="dt-icon" aria-hidden="true"><use href="#i-logo"/></svg><span class="mk-footer-brand-name">defuss-tauri</span></a>
+        <div class="mk-footer-meta">
+          <p class="mk-footer-copy">© 2026 <a href="https://www.linkedin.com/in/aronhomberg/" target="_blank" rel="noopener">Aron Homberg (kyr0)<svg class="dt-icon dt-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a> · MIT. The facts on this page come from this repository's README and ARCH.md; each claim's evidence is listed under <a href="#certified">Certification</a>.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+<div class="fab" data-scroll-top>
+  <a class="btn fab-trigger" href="#top" aria-label="Back to top"><span class="fab-icon" aria-hidden="true"><svg class="dt-icon"><use href="#i-arrow-up"/></svg></span></a>
+</div>
+
+<script type="module" src="https://cdn.jsdelivr.net/gh/kyr0/defuss-shadcn@0.9.7/dist/components/all.min.js" integrity="sha384-JmEU+8ZPWy1rlTlMFk/KEDwAGEFHBY5hz8soLiLVFnshIEAAcwjMUoF40IHEv6aR" crossorigin="anonymous"></script>
+<script type="module" src="assets/site.js"></script>
+<script type="module" src="assets/highlight.mjs"></script>
+</body>
+</html>
