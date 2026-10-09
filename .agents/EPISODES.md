@@ -27,3 +27,6 @@ A lesson recurring ≥2 → test | .agents/VERIFY.py rule | MEMORY line, then de
 2026-10-05T23:11:18Z s=7c6320cb FINDING tools/setup_mobile.py:require_free_gb learn=test: virtual devices opt-in behind free-disk guards; tests/test_setup_mobile.py proves the guard refuses an impossible requirement
 2026-10-05T23:11:18Z s=7c6320cb FINDING tools/setup_mobile.py:install_cmdline_tools learn=test: build 16111833 pinned with SHA-1 from Google's repository2-3.xml; tests prove a changed archive is rejected
 2026-10-05T23:23:42Z s=7c6320cb DONE fp=0a175db4980c cov=93.8% paths=.github/workflows/verify.yml,AGENTS.md,ARCH.md,Makefile(+46)
+2026-10-09T16:39:11Z s=7c6320cb DONE fp=446bfd4df341 cov=? paths=README.md
+2026-10-09T16:42:58Z s=7c6320cb DONE fp=cda0ed3b418a cov=? paths=README.md
+2026-10-09T16:55:48Z s=7c6320cb DONE fp=0bb418d43fb8 cov=? paths=README.md

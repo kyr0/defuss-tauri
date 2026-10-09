@@ -1,6 +1,6 @@
 {
   "name": "defuss-tauri",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Framework-independent Tauri launcher for HTTP(S) URLs and static directories.",
   "type": "module",
   "license": "MIT",

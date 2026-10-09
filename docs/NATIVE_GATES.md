@@ -57,18 +57,35 @@ authentication, reload/recovery and WebSocket behavior. Close/force-terminate th
 the external service survives. The test harness, not defuss-tauri, owns that fixture service. Existing
 JavaScript e2e establishes only preparation behavior and CLI exit, not native close/crash behavior.
 
-### 3. Self-signed HTTPS adapters: NOT_IMPLEMENTED
+### 3. Self-signed HTTPS: the CA-install model (decided 2026-10-09)
 
-Add small app-scoped native certificate handlers for required platforms. Test main navigation,
-subresources, worker script fetching, activation/control, update, restart and WSS separately. Verify
-actual exception scope (origin/host/session, as supported) and that no system trust store changed.
-WKWebView integration must not replace Wry delegates indiscriminately. An insecure-page flag, CSP
-header or successful first navigation is not proof of worker TLS handling.
+The app adds no TLS exception handlers and modifies no trust store. Self-signed dev servers are
+supported through a CA the developer installs on the OS or device, produced by any standard issuer:
+smallstep (`step certificate create` or a local `step-ca`), Caddy with an external certificate
+(`tls <cert> <key>`), or `mkcert`. Caddy's internal CA (`tls internal`) additionally installs its root
+into the system trust store itself (`caddy trust`) — a developer-machine convenience the app neither
+performs nor requires.
 
-A Rust loopback origin bridge is an explicit alternative only after native evidence shows it is needed.
-It changes origin and needs independently specified redirects/cookies/authentication/CSP/WSS semantics.
-Do not add it as a hidden universal fallback. If an engine itself lacks required worker support, changing
-TLS transport is not a solution. This unresolved constraint blocks the original stronger security promise.
+Why no app-scoped handlers: VERIFIED (2026-10-09, source inspection of the compiled dependency graph)
+that wry 0.57.0 and tauri 2.12.1 / tauri-runtime-wry expose no certificate-verification hook on any
+platform — WebView2's `ServerCertificateErrorDetected`, WebKitGTK's `allow_tls_certificate_for_host`
+and Android's `onReceivedSslError` are all unwired — so handlers would require a wry fork or an
+upstream API first. WKWebView offers no public app-scoped server-trust exception at all, so macOS and
+iOS could never share that model; the platform's own trust path is the one mechanism that is uniform,
+reviewable and already documented per device. An insecure-page flag, CSP header or successful first
+navigation is not proof of worker TLS handling either way.
+
+The `https-self-signed-lifecycle` release scope keeps its claim set and means: the full lifecycle —
+main navigation, subresources, worker script fetching, activation/control, update, restart and WSS
+separately — over a server whose CA was installed through the platform's normal trust path before the
+run. Its `exception_scope` claim reports that no in-app exception exists (`platform trust via
+installed CA only`), and `os_trust_store_unchanged` proves the app changed no store during its
+lifecycle.
+
+A Rust loopback origin bridge remains ruled out as before: an explicit alternative only after native
+evidence shows it is needed, never a hidden universal fallback. It changes origin and needs
+independently specified redirects/cookies/authentication/CSP/WSS semantics. If an engine itself lacks
+required worker support, changing TLS transport is not a solution.
 
 ### 4. Upgrade and distribution
 
@@ -97,8 +114,10 @@ system WebView on Android. Port the probe report channel to mobile only with tha
 ## Known scaffold choices, not accidental omissions
 
 All symlinks are rejected. Existing manifest-listed dev files are live; new files need a dev restart.
-Second-instance focus forwarding, multi-root asset mounts, hot-reload injection, native-command plugins,
-OS permission adapters and a dedicated native offline status surface are not implemented. Standard
+Second-instance focus forwarding, multi-root asset mounts, hot-reload injection, OS permission adapters
+and a dedicated native offline status surface are not implemented. Native commands are not built in:
+the opt-in `rust.extensions` mechanism compiles user-owned crates into the host instead (see the
+README), and the default host still ships none. Standard
 engine errors plus a native reload menu are provided. macOS 14 is the explicit minimum for per-app
 persistent data stores. Developer mode enables inspector functionality; upstream documents private
 macOS APIs for that feature, so App Store suitability is not assumed.

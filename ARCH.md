@@ -149,6 +149,25 @@ user-installed CAs. Trusting user CAs also trusts any CA a device administrator 
 builds that do not need it can remove `<certificates src="user" />` from the Android network security
 config.
 
+Self-signed dev servers ride the same platform path: a CA the developer installs on the OS or device
+(`mkcert`, smallstep's `step-ca` or `step certificate create`, or Caddy with an external certificate),
+never an app-side exception. Why not app-scoped handlers: the pinned wry 0.57.0 / tauri 2.12.1 surface
+exposes no certificate-verification hook on any platform (verified against their sources), and
+WKWebView offers no app-scoped server-trust exception at all, so the platform trust path is the one
+uniform, reviewable mechanism. Caddy's internal-CA mode installs its root into the system store
+itself; the app never modifies trust stores.
+
+**Rust extensions.** The generated host stays wrapper-only by default. `rust.extensions` in the
+configuration opts a project into its own native code: each entry references a user-owned library
+crate by path, the generated `Cargo.toml` gains a renamed path dependency, and a generated
+`extensions.rs` calls the crate's `defuss_tauri_extend(builder)` first in the Tauri builder chain.
+Capability objects are rendered verbatim as data into `src-tauri/capabilities/`. Why path references
+instead of copying user sources: the crate keeps one owner and one edit location, nothing unowned
+enters the generated tree (the fail-closed guards stay intact), and a wrong hook signature fails the
+build loudly. The mechanism is compile-verified (`make native-test` checks a fixture extension host
+with `-D warnings`); runtime behavior of user extension code is the developer's scope, not a
+defuss-tauri support claim.
+
 **Inputs from outside.** URL credentials (`https://user:password@host`) are rejected. A URL's query is
 compiled into the binary, so tokens in it are not secret. On iOS and Android, web content gets camera,
 microphone and location only after the system's permission prompt.
