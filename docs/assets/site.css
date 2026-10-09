@@ -87,8 +87,8 @@
   .dt-options { display: grid; gap: 2rem 3rem; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; margin-block-start: 2.5rem; }
   .dt-options .table-container { margin: 0; }
   .dt-options .mockup-code { margin: 0; }
-  /* the Option column stays at roughly 60% of its content width: wrapping instead of nowrap */
-  .dt-options .table-cell:first-child { font-family: var(--font-mono); max-width: 24ch; overflow-wrap: break-word; }
+  /* the Option column wraps instead of nowrap: noticeably narrower than full content width */
+  .dt-options .table-cell:first-child { font-family: var(--font-mono); max-width: 30ch; overflow-wrap: break-word; }
   @media (max-width: 56rem) { .dt-options { grid-template-columns: minmax(0, 1fr); } }
 
   /* certification: the stats band with the verified-scopes table as its figure */
