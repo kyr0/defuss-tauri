@@ -70,7 +70,7 @@ export async function doctorDefussTauri(options: DefussTauriOptions = {}): Promi
     security: config?.security ?? null, warnings: config?.warnings ?? [],
     mobile: mobile && !options.dryRun ? { platform: mobile, missing: await mobileProblems(mobile) } : null,
     nativeCompilation: "UNKNOWN: doctor does not compile", serviceWorker: "UNKNOWN: requires native lifecycle probe",
-    selfSignedTls: "NOT_IMPLEMENTED: platform validation applies; no trust-store mutation or silent proxy",
+    selfSignedTls: "DECIDED: CA-install model; platform validation applies, the app adds no TLS exceptions and edits no trust stores; install the dev server's CA on the OS or device",
   };
   return { code: configurationError || (!options.dryRun && (!diagnostics.cargo || !diagnostics.rustc || Boolean(diagnostics.mobile?.missing.length))) ? "FAILED" : "OK", message: JSON.stringify(diagnostics, null, 2), diagnostics };
 }

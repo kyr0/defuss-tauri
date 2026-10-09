@@ -1,0 +1,20 @@
+{
+  "target": "./site",
+  "identifier": "dev.test.rust-ext",
+  "icons": ["./icon.png"],
+  "rust": {
+    "extensions": [
+      {
+        "path": "../rust-ext",
+        "package": "defuss-test-ext",
+        "capabilities": [
+          {
+            "identifier": "fixture-ext",
+            "windows": ["main"],
+            "permissions": ["core:default"]
+          }
+        ]
+      }
+    ]
+  }
+}

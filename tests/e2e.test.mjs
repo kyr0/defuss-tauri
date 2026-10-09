@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
 import {mkdir, writeFile, readFile, readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
-import {join} from 'node:path';
+import {join, relative} from 'node:path';
 import {fixture} from './helpers.mjs';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const cli=join(root,'dist/cli.js');
@@ -31,4 +31,19 @@ test('built CLI error codes, dry-run/init, folder preparation and exact serializ
  const built=await run(cli,['build','--prepare-only'],project);assert.equal(built.code,0,built.stderr);assert.equal(await readFile(join(project,'.defuss-tauri/release/src-tauri/assets/index.html'),'utf8'),'<!doctype html><title>Fixture</title>');
  assert.equal((await run(cli,['--help'],project)).code,0);assert.equal((await run(cli,['--skip-ssg'],project)).code,1);assert.equal((await run(cli,['--no-such-option'],project)).code,1);
  await evidence('built-cli',{status:'VERIFIED',artifact: 'dist/cli.js',init:true,dryRunNoWrites:true,folderSnapshot:true,migrationErrors:true});
+});
+test('built CLI renders rust extensions into the generated host', async _t => {
+ const project=join(root,'tests/fixtures/rust-ext-project');
+ const managed=join(root,'tmp/e2e/rust-ext');
+ const result=await run(cli,['dev','--config','defuss-tauri.json','--prepare-only','--managed-dir',relative(project,managed),'--tauri-out',relative(project,join(root,'tmp/e2e/rust-ext-out'))],project);
+ assert.equal(result.code,0,result.stderr);
+ const base=join(managed,'dev/src-tauri');
+ // Custom app icons are copied into the host as hash-owned files and drive bundle.icon.
+ assert.ok((await readFile(join(base,'icons/icon.png'))).equals(await readFile(join(project,'icon.png'))));
+ assert.match(await readFile(join(base,'Cargo.toml'),'utf8'),/defuss_tauri_ext_0 = \{ path = "[^"]*tests\/fixtures\/rust-ext", package = "defuss-test-ext" \}/);
+ assert.match(await readFile(join(base,'src/extensions.rs'),'utf8'),/defuss_tauri_ext_0::defuss_tauri_extend\(builder\)/);
+ const capability=JSON.parse(await readFile(join(base,'capabilities/ext-0-0.json'),'utf8'));assert.equal(capability.identifier,'fixture-ext');
+ assert.deepEqual(JSON.parse(await readFile(join(base,'tauri.conf.json'),'utf8')).app.security.capabilities,['fixture-ext']);
+ assert.deepEqual(JSON.parse(await readFile(join(base,'tauri.conf.json'),'utf8')).bundle.icon,['icons/icon.png']);
+ await evidence('rust-extensions',{status:'VERIFIED',dependencyWired:true,hookWired:true,capabilityRendered:true,nativeCompile:'UNKNOWN: covered by make native-test'});
 });

@@ -1,0 +1,9 @@
+[package]
+name = "defuss-test-ext"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+# Pinned to the same tauri the generated host uses, so the fixture resolves inside the host's lockfile.
+tauri = "=2.12.1"

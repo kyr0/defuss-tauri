@@ -14,11 +14,27 @@ export interface AssetOptions {
   include?: string[];
   headers?: Record<string, string>;
 }
+/** A Tauri v2 capability object, rendered verbatim into the generated host. */
+export type ExtensionCapability = Record<string, unknown>;
+export interface RustExtension {
+  /** Directory of a Rust library crate, relative to the configuration file. */
+  path: string;
+  /** Package name of that crate, as written in its Cargo.toml. */
+  package: string;
+  /** Tauri capability objects; each becomes one generated capabilities/ext-N-M.json file. */
+  capabilities?: ExtensionCapability[];
+}
+export interface RustOptions {
+  /** Opt-in native code: nothing ships unless explicitly listed here. */
+  extensions?: RustExtension[];
+}
 export interface DefussTauriConfig {
   target?: string; entry?: string; appName?: string; identifier?: string; version?: string;
   platform?: DefussTauriPlatform; rustTarget?: string; managedDirName?: string;
   tauriOutDir?: string; security?: "developer" | "strict";
-  window?: DefussTauriWindowOptions; assets?: AssetOptions;
+  window?: DefussTauriWindowOptions; assets?: AssetOptions; rust?: RustOptions;
+  /** App icon files (.png/.ico/.icns), copied into the generated host and used for bundling. */
+  icons?: string[];
 }
 export interface DefussTauriOptions extends DefussTauriConfig {
   command?: DefussTauriCommand;
@@ -30,6 +46,12 @@ export interface DefussTauriOptions extends DefussTauriConfig {
 export type ResolvedWebTarget =
   | { kind: "url"; url: string }
   | { kind: "directory"; root: string; entry: string };
+export interface ResolvedRustExtension {
+  /** Absolute directory of the extension crate. */
+  path: string;
+  package: string;
+  capabilities: ExtensionCapability[];
+}
 export interface ResolvedConfig {
   command: DefussTauriCommand; projectDir: string; configFile: string | null;
   target: ResolvedWebTarget; appName: string; identifier: string; version: string;
@@ -38,6 +60,8 @@ export interface ResolvedConfig {
   security: "developer" | "strict";
   window: Required<DefussTauriWindowOptions>;
   assets: { port: number | null; spa: boolean; exclude: string[]; include: string[]; headers: Record<string, string> };
+  rust: { extensions: ResolvedRustExtension[] };
+  icons: string[];
   skipInstall: boolean; debug: boolean; dryRun: boolean; prepareOnly: boolean;
   warnings: string[];
 }

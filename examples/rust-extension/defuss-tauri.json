@@ -1,0 +1,11 @@
+{
+  "target": "./site",
+  "appName": "Rust Extension Example",
+  "identifier": "dev.defuss.rust-extension-example",
+  "icons": ["./assets/icon.png", "./assets/icon.ico", "./assets/icon.icns"],
+  "rust": {
+    "extensions": [
+      { "path": "./rust-ext", "package": "defuss-example-rust-ext" }
+    ]
+  }
+}

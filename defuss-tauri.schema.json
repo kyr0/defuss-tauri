@@ -67,6 +67,56 @@
       "default": "developer",
       "description": "Developer enables the native inspector. Neither value overrides target TLS, CORS, OS permissions or engine feature availability."
     },
+    "icons": {
+      "type": "array",
+      "description": "App icon files (.png, .ico, .icns), relative to this configuration file; copied into the generated host and used for bundling.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!/|\\\\|[A-Za-z]:).+$"
+      }
+    },
+    "rust": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extensions": {
+          "type": "array",
+          "description": "Opt-in user Rust crates compiled into the generated host; nothing ships unless listed here.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "package"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/|\\\\|[A-Za-z]:).+$",
+                "description": "Directory of the extension crate, relative to this configuration file."
+              },
+              "package": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+                "description": "Package name of the crate as written in its Cargo.toml."
+              },
+              "capabilities": {
+                "type": "array",
+                "description": "Tauri v2 capability objects; each is rendered verbatim into src-tauri/capabilities/.",
+                "items": {
+                  "type": "object",
+                  "required": ["identifier", "windows", "permissions"],
+                  "properties": {
+                    "identifier": { "type": "string", "minLength": 1 },
+                    "windows": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+                    "permissions": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "window": {
       "type": "object",
       "additionalProperties": false,

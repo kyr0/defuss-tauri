@@ -1,0 +1,9 @@
+[package]
+name = "defuss-example-rust-ext"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+# Pinned to the same tauri the generated host uses, so this crate resolves inside the host's lockfile.
+tauri = "=2.12.1"

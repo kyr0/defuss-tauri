@@ -102,7 +102,7 @@ test('init requires neither HTML nor Rust; safe config-relative CLI rebasing',as
 test('doctor dry-run reads but never creates config or native files',async t=>{
  const root=await fixture(t);const before=await readdir(root);
  const report=await doctorDefussTauri({projectDir:root,dryRun:true});assert.equal(report.code,'OK');assert.equal(report.diagnostics.cargo,null);
- assert.match(report.diagnostics.selfSignedTls,/NOT_IMPLEMENTED/);assert.deepEqual(await readdir(root),before);
+ assert.match(report.diagnostics.selfSignedTls,/DECIDED: CA-install model/);assert.deepEqual(await readdir(root),before);
  assert.equal((await runDefussTauri({projectDir:root,command:'doctor',dryRun:true})).code,'OK');
  await assert.rejects(runDefussTauri({projectDir:root,command:'bogus'}),/Unknown/);
 });
@@ -134,6 +134,56 @@ test('mobile platforms keep URLs exact and reject unreachable or invalid setups'
  assert.equal((await resolveConfig({projectDir:root})).mobile,null);assert.equal(parseArgs(['--platform','android']).options.platform,'android');
  if(process.platform==='darwin')assert.doesNotThrow(()=>assertPlatform(ios));else assert.throws(()=>assertPlatform(ios),/iOS builds require macOS/);
  assert.doesNotThrow(()=>assertPlatform({...ios,platform:'android',mobile:'android'}));
+});
+test('rust extensions validate, resolve and render into the host', async t => {
+  const ext = {path:'./crate', package:'defuss-test-ext', capabilities:[{identifier:'cap', windows:['main'], permissions:['core:default'], description:'kept verbatim'}]};
+  const rejects = (input, pattern) => assert.rejects(async () => validateConfig(input), pattern);
+  await rejects({rust:{extension:[]}},/Unknown rust field/);
+  await rejects({rust:{extensions:{}}},/rust\.extensions must be an array/);
+  await rejects({rust:{extensions:[{package:'x'}]}},/path must be a relative path/);
+  await rejects({rust:{extensions:[{path:'/abs', package:'x'}]}},/path must be a relative path/);
+  await rejects({rust:{extensions:[{path:'C:\\x', package:'x'}]}},/path must be a relative path/);
+  await rejects({rust:{extensions:[{path:'./c', package:'-x'}]}},/package must be a Cargo package name/);
+  await rejects({rust:{extensions:[{path:'./c', package:'x', capabilities:[{windows:['main'],permissions:['core:default']}]}]}},/identifier/);
+  await rejects({rust:{extensions:[{path:'./c', package:'x', capabilities:[{identifier:'c', windows:[],permissions:['core:default']}]}]}},/windows/);
+  await rejects({rust:{extensions:[{path:'./c', package:'x', extra:1}]}},/Unknown rust\.extensions\[0\] field/);
+  // Filesystem resolution: existence, real directory, regular Cargo.toml, outside managed/output.
+  const root = await fixture(t);
+  await writeFile(join(root,'cfg.json'), JSON.stringify({target:'.'}));
+  await assert.rejects(resolveConfig({projectDir:root, config:'cfg.json', rust:{extensions:[ext]}}), /does not exist/);
+  await mkdir(join(root,'crate/nested'),{recursive:true}); await writeFile(join(root,'crate/Cargo.toml'),'[package]\nname="x"\n');
+  await assert.rejects(resolveConfig({projectDir:root, config:'cfg.json', rust:{extensions:[{...ext, path:'./crate/nested'}]}}), /regular Cargo\.toml/);
+  await symlink('./crate', join(root,'link'));
+  await assert.rejects(resolveConfig({projectDir:root, config:'cfg.json', target:'.', rust:{extensions:[{...ext, path:'./link'}]}}), /not a symlink/);
+  await mkdir(join(root,'.defuss-tauri/inside/src'),{recursive:true}); await writeFile(join(root,'.defuss-tauri/inside/Cargo.toml'),'[package]\nname="x"\n');
+  await assert.rejects(resolveConfig({projectDir:root, config:'cfg.json', target:'.', rust:{extensions:[{...ext, path:'./.defuss-tauri/inside'}]}}), /outside the managed and output directories/);
+  const resolved = await resolveConfig({projectDir:root, config:'cfg.json', target:'.', rust:{extensions:[ext]}});
+  assert.deepEqual(resolved.rust.extensions, [{path:join(root,'crate'), package:'defuss-test-ext', capabilities:ext.capabilities}]);
+  // Icons: validated fail-closed and rendered as hash-owned copies that drive bundle.icon.
+  await rejects({icons:'./icon.png'},/icons must be an array/);
+  await rejects({icons:['/abs/icon.png']},/relative file paths/);
+  await rejects({icons:['assets\\icon.png']},/relative file paths/);
+  await rejects({icons:['./icon.webp']},/must be one of/);
+  await rejects({icons:['./a/icon.png','./b/icon.png']},/file name twice/);
+  await assert.rejects(resolveConfig({projectDir:root, config:'cfg.json', rust:{}, icons:['./missing.png']}), /does not exist/);
+  await symlink('./crate/Cargo.toml', join(root,'link.png'));
+  await assert.rejects(resolveConfig({projectDir:root, config:'cfg.json', rust:{}, icons:['./link.png']}), /not a symlink/);
+  // Rendering: default hosts keep the no-op identity hook and template icons; extension hosts gain dependency, wiring, capabilities and custom icons.
+  const {renderHost} = await import('../src/templates.ts');
+  const empty = await renderHost(resolved, {schema:1, files:[], totalBytes:0}, new Map());
+  const plain = await renderHost(await resolveConfig({projectDir:root}), {schema:1, files:[], totalBytes:0}, new Map());
+  assert.match(empty.get('src-tauri/src/extensions.rs').toString(), /defuss_tauri_ext_0::defuss_tauri_extend/);
+  assert.match(empty.get('src-tauri/Cargo.toml').toString(), /defuss_tauri_ext_0 = \{ path = "\.\.\/\.\.\/\.\.\/crate", package = "defuss-test-ext" \}/);
+  const capability = JSON.parse(empty.get('src-tauri/capabilities/ext-0-0.json').toString());
+  assert.deepEqual(capability, ext.capabilities[0]);
+  assert.deepEqual(JSON.parse(empty.get('src-tauri/tauri.conf.json').toString()).app.security.capabilities, ['cap']);
+  assert.doesNotMatch(plain.get('src-tauri/src/extensions.rs').toString(), /defuss_tauri_ext_0/);
+  assert.deepEqual(JSON.parse(plain.get('src-tauri/tauri.conf.json').toString()).app.security.capabilities, []);
+  assert.deepEqual(JSON.parse(plain.get('src-tauri/tauri.conf.json').toString()).bundle.icon, ['icons/icon.png','icons/icon.ico','icons/icon.icns']);
+  await writeFile(join(root,'crate/icon.png'), 'png-bytes');
+  const iconHost = await renderHost(await resolveConfig({projectDir:root, config:'cfg.json', rust:{extensions:[ext]}, icons:['./crate/icon.png']}), {schema:1, files:[], totalBytes:0}, new Map());
+  assert.equal(iconHost.get('src-tauri/icons/icon.png')?.toString(), 'png-bytes');
+  assert.deepEqual(JSON.parse(iconHost.get('src-tauri/tauri.conf.json').toString()).bundle.icon, ['icons/icon.png']);
 });
 test('mobile preflight reports every missing prerequisite from real lookups, never installs',async t=>{
  const root=await fixture(t,{});const bare={PATH:root};

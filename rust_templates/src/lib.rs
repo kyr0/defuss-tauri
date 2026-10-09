@@ -1,5 +1,6 @@
 //! Native shell only. Target services have no child-process or lifecycle representation.
 //! Desktop enters through main.rs; iOS/Android through the mobile entry point.
+mod extensions;
 mod profile;
 #[cfg(feature = "probe")]
 use std::fs;
@@ -48,7 +49,8 @@ pub fn run() {
 fn start() -> Result<(), Box<dyn Error>> {
     let config: Config = serde_json::from_str(include_str!("../runtime.json"))?;
     if config.schema != 1 { return Err(failure("Unsupported runtime config schema").into()); }
-    tauri::Builder::default().setup(move |app| {
+    // User extensions wrap the pristine builder first; defuss-tauri layers window, menu and store setup after.
+    extensions::wire(tauri::Builder::default()).setup(move |app| {
         let directory = app.path().app_data_dir()?.join("profile-v1");
         let profile = profile::Profile::open(&directory)?;
         let target_url = match &config.target {

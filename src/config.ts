@@ -3,9 +3,11 @@ import { readFile, lstat, realpath } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { hasControlCharacter, inside, loopback, relativeAssetPath, resolveTarget } from "./target.ts";
-import type { DefussTauriConfig, DefussTauriOptions, DefussTauriPlatform, MobilePlatform, ResolvedConfig } from "./types.ts";
+import type { DefussTauriConfig, DefussTauriOptions, DefussTauriPlatform, MobilePlatform, ResolvedConfig, ResolvedRustExtension } from "./types.ts";
 
-const KEYS = new Set(["$schema", "target", "entry", "appName", "identifier", "version", "platform", "rustTarget", "managedDirName", "tauriOutDir", "security", "window", "assets"]);
+const KEYS = new Set(["$schema", "target", "entry", "appName", "identifier", "version", "platform", "rustTarget", "managedDirName", "tauriOutDir", "security", "window", "assets", "rust", "icons"]);
+/** Icon formats the Tauri bundler consumes; anything else fails with this exact list. */
+const ICON_EXTENSIONS = new Set([".png", ".ico", ".icns"]);
 function object(value: unknown, at: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${at} must be an object`);
   return value as Record<string, unknown>;
@@ -50,6 +52,44 @@ export function validateConfig(input: unknown): DefussTauriConfig {
     if (assets.headers !== undefined) for (const [key, value] of Object.entries(object(assets.headers, "assets.headers"))) {
       if (!/^[!#$%&'*+.^_`|~\da-z-]+$/iu.test(key) || typeof value !== "string" || /[^\x20-\x7e\t]/u.test(value)) throw new Error("Invalid HTTP header name/value");
       if (["content-length", "transfer-encoding", "connection", "content-range", "host"].includes(key.toLowerCase())) throw new Error(`Transport owns header ${key}`);
+    }
+  }
+  if (obj.icons !== undefined) {
+    if (!Array.isArray(obj.icons)) throw new Error("icons must be an array of file paths");
+    const names = new Set<string>();
+    for (const icon of obj.icons) {
+      text(icon, "icons");
+      if (/^(?:[A-Za-z]:[\\/]|[/\\])|\\/u.test(String(icon))) throw new Error("icons entries must be relative file paths, not absolute or backslash-separated");
+      const name = String(icon).split("/").pop() ?? "";
+      if (!ICON_EXTENSIONS.has(name.slice(name.lastIndexOf(".")).toLowerCase())) throw new Error(`icons entries must be one of ${[...ICON_EXTENSIONS].join(", ")}`);
+      if (names.has(name)) throw new Error(`icons contains the file name twice: ${name}`);
+      names.add(name);
+    }
+  }
+  if (obj.rust !== undefined) {
+    const rust = object(obj.rust, "rust");
+    keys(rust, new Set(["extensions"]), "rust");
+    if (rust.extensions !== undefined) {
+      if (!Array.isArray(rust.extensions)) throw new Error("rust.extensions must be an array");
+      rust.extensions.forEach((entry, index) => {
+        const at = `rust.extensions[${index}]`;
+        const ext = object(entry, at);
+        keys(ext, new Set(["path", "package", "capabilities"]), at);
+        if (ext.path === undefined || /^(?:[A-Za-z]:[\\/]|[/\\]|\.{0,2}$)/u.test(String(ext.path))) throw new Error(`${at}.path must be a relative path to an extension crate directory`);
+        text(ext.path, `${at}.path`);
+        if (ext.package === undefined || !/^[a-zA-Z\d][a-zA-Z\d_-]*$/u.test(String(ext.package))) throw new Error(`${at}.package must be a Cargo package name`);
+        if (ext.capabilities !== undefined) {
+          if (!Array.isArray(ext.capabilities)) throw new Error(`${at}.capabilities must be an array`);
+          ext.capabilities.forEach((capability, capIndex) => {
+            const capAt = `${at}.capabilities[${capIndex}]`;
+            const record = object(capability, capAt);
+            if (typeof record.identifier !== "string" || !record.identifier.trim()) throw new Error(`${capAt}.identifier must be a nonempty string`);
+            for (const key of ["windows", "permissions"]) {
+              if (!Array.isArray(record[key]) || record[key].length === 0 || record[key].some((item) => typeof item !== "string" || !item.trim())) throw new Error(`${capAt}.${key} must be a nonempty array of strings`);
+            }
+          });
+        }
+      });
     }
   }
   return obj as DefussTauriConfig;
@@ -99,10 +139,42 @@ export async function resolveConfig(options: DefussTauriOptions = {}): Promise<R
     try { if ((await lstat(path)).isSymbolicLink()) throw new Error(`Generated directory cannot be a symlink: ${path}`); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   }
+  const warnings: string[] = [];
+  // Extensions are user-owned crates outside the generated tree; every path is checked, also in dry-run.
+  const extensions: ResolvedRustExtension[] = [];
+  for (const [index, entry] of (merged.rust?.extensions ?? []).entries()) {
+    const at = `rust.extensions[${index}]`;
+    const raw = resolve(base, entry.path);
+    let info;
+    try { info = await lstat(raw); } catch { throw new Error(`${at}.path does not exist: ${entry.path}`); }
+    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error(`${at}.path must be a real directory, not a symlink`);
+    const manifestFile = join(raw, "Cargo.toml");
+    try { const cargo = await lstat(manifestFile); if (!cargo.isFile() || cargo.isSymbolicLink()) throw new Error("not a regular file"); }
+    catch { throw new Error(`${at}.path must contain a regular Cargo.toml`); }
+    const path = await canonicalFuture(raw);
+    if (inside(path, managedDir) || inside(managedDir, path) || inside(path, distributionDir) || inside(distributionDir, path)) {
+      throw new Error(`${at}.path must live outside the managed and output directories`);
+    }
+    if (target.kind === "directory" && inside(path, target.root)) warnings.push(`${at}.path lives inside the web target and ships as web assets unless excluded.`);
+    extensions.push({ path, package: entry.package, capabilities: entry.capabilities ?? [] });
+  }
+  // App icons are build inputs copied into the host as hash-owned files; the source stays yours.
+  const icons: string[] = [];
+  for (const [index, entry] of (merged.icons ?? []).entries()) {
+    const raw = resolve(base, entry);
+    let info;
+    try { info = await lstat(raw); } catch { throw new Error(`icons[${index}] does not exist: ${entry}`); }
+    if (!info.isFile() || info.isSymbolicLink()) throw new Error(`icons[${index}] must be a regular file, not a symlink: ${entry}`);
+    const path = await canonicalFuture(raw);
+    if (inside(path, managedDir) || inside(managedDir, path) || inside(path, distributionDir) || inside(distributionDir, path)) {
+      throw new Error(`icons[${index}] must live outside the managed and output directories`);
+    }
+    if (target.kind === "directory" && inside(path, target.root)) warnings.push(`icons[${index}] lives inside the web target and ships as web assets unless excluded.`);
+    icons.push(path);
+  }
   const identity = createHash("sha256").update(target.kind === "directory" ? target.root : new URL(target.url).origin).digest("hex").slice(0, 12);
   const derivedName = target.kind === "directory" ? basename(target.root) : new URL(target.url).hostname;
   const appName = merged.appName ?? (derivedName.replace(/[\\/:*?"<>|]/gu, " ").trim() || "Defuss App");
-  const warnings: string[] = [];
   if (merged.identifier === undefined) warnings.push("Set identifier before distribution; the generated identifier is location-derived.");
   const platform = merged.platform ?? "native";
   const mobile = mobilePlatform(platform);
@@ -128,6 +200,7 @@ export async function resolveConfig(options: DefussTauriOptions = {}): Promise<R
     managedDir, distributionDir, profile, security: merged.security ?? "developer",
     window: { title: merged.window?.title ?? appName, width: merged.window?.width ?? 1280, height: merged.window?.height ?? 800, resizable: merged.window?.resizable ?? true, fullscreen: merged.window?.fullscreen ?? false },
     assets: { port: merged.assets?.port ?? null, spa: merged.assets?.spa ?? false, include: (merged.assets?.include ?? []).map((path) => relativeAssetPath(path, "assets.include")), exclude: (merged.assets?.exclude ?? []).map((path) => relativeAssetPath(path, "assets.exclude")), headers: merged.assets?.headers ?? {} },
+    rust: { extensions }, icons,
     skipInstall: options.skipInstall ?? false, debug: options.debug ?? false, dryRun: options.dryRun ?? false, prepareOnly: options.prepareOnly ?? false, warnings,
   };
 }
